@@ -15,42 +15,55 @@
  */
 package com.codelabs.state.viewmodel
 
-import androidx.compose.runtime.toMutableStateList
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.compose.runtime.mutableStateListOf
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.codelabs.state.WellnessApplication
 import com.codelabs.state.data.WellnessTask
+import kotlinx.coroutines.launch
 
-class WellnessViewModel : ViewModel() {
+class WellnessViewModel(application: Application) : AndroidViewModel(application) {
+    
+    private val dao = (application as WellnessApplication).database.wellnessTaskDao()
+
     // 这里的列表依然是 MutableStateList，它可以监听增删改
-    private val _tasks = ArrayList<WellnessTask>().toMutableStateList()
+    private val _tasks = mutableStateListOf<WellnessTask>()
     val tasks: List<WellnessTask>
         get() = _tasks
 
+    init {
+        // 监听数据库变化，更新 UI
+        viewModelScope.launch {
+            dao.getAll().collect { list ->
+                _tasks.clear()
+                _tasks.addAll(list)
+            }
+        }
+    }
+
     fun addTask(title: String, timeInMillis: Long, rrule: String?) {
-        val newId = (_tasks.maxOfOrNull { it.id } ?: 0) + 1
-        val newTask = WellnessTask(
-            id = newId,
-            label = title,
-            timeInMillis = timeInMillis,
-            rrule = rrule,
-            checked = false
-        )
-        _tasks.add(newTask)
+        viewModelScope.launch {
+            val newTask = WellnessTask(
+                label = title,
+                timeInMillis = timeInMillis,
+                rrule = rrule,
+                checked = false
+            )
+            dao.insert(newTask)
+        }
     }
 
     fun remove(item: WellnessTask) {
-        _tasks.remove(item)
+        viewModelScope.launch {
+            dao.delete(item)
+        }
     }
 
 
     fun changeTaskChecked(item: WellnessTask, checked: Boolean) {
-        // 1. 找到该任务在列表中的索引
-        val index = _tasks.indexOfFirst { it.id == item.id }
-        if (index != -1) {
-            // 2. 创建一个 checked 状态改变了的新副本
-            val newItem = _tasks[index].copy(checked = checked)
-            // 3. 替换列表中的旧元素 -> 触发 Compose 重组
-            _tasks[index] = newItem
+        viewModelScope.launch {
+            dao.update(item.copy(checked = checked))
         }
     }
 }
-

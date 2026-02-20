@@ -18,6 +18,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -55,7 +56,7 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true  // 才能获取到buildConfig
+        buildConfig = true
     }
     packaging {
         resources {
@@ -77,6 +78,12 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.foundation:foundation-layout:1.10.0")
     implementation("androidx.compose.material3:material3:1.4.0")
+    
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")

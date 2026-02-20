@@ -1,11 +1,14 @@
 package com.codelabs.state.data
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 
-
+@Entity(tableName = "wellness_tasks")
 data class WellnessTask(
-    val id: Int,
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
     val label: String,
-    val timeInMillis: Long,   // 任务时间
-    val rrule: String? = null,// 重复规则
-    val checked: Boolean = false // ✅ 直接用 Boolean，不再用 MutableState
+    val timeInMillis: Long,
+    val rrule: String? = null,
+    val checked: Boolean = false
 )

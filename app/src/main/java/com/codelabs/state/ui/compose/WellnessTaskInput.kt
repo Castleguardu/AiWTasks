@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TimePickerState
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,7 +45,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.codelabs.state.data.RecurrenceType
 import com.codelabs.state.utils.IntentUtils.addCalendarEvent
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +87,13 @@ fun WellnessTaskInput(
         )
     }
 
+    // Date Picker State
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = startTime.timeInMillis
+    )
+    val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
     // 控制弹窗显示
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -100,6 +113,18 @@ fun WellnessTaskInput(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Date Selection
+        OutlinedButton(
+            onClick = { showDatePicker = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.DateRange, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("日期: ${dateFormatter.format(startTime.time)}")
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -238,6 +263,41 @@ fun WellnessTaskInput(
             }
         ) {
             TimePicker(state = timePickerState)
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                            utcCalendar.timeInMillis = millis
+
+                            val year = utcCalendar.get(Calendar.YEAR)
+                            val month = utcCalendar.get(Calendar.MONTH)
+                            val day = utcCalendar.get(Calendar.DAY_OF_MONTH)
+
+                            // Update Start Time Date
+                            val newStart = startTime.clone() as Calendar
+                            newStart.set(year, month, day)
+                            startTime = newStart
+
+                            // Update End Time Date
+                            val newEnd = endTime.clone() as Calendar
+                            newEnd.set(year, month, day)
+                            endTime = newEnd
+                        }
+                    }
+                ) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
