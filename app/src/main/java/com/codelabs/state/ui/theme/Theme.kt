@@ -30,33 +30,41 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+// Pixel Art Theme Colors
+private val PixelLightColorScheme = lightColorScheme(
+    primary = PixelGreen,
+    onPrimary = RetroBeige,
+    primaryContainer = PixelGreen,
+    onPrimaryContainer = RetroDarkBrown,
+    secondary = PixelGold,
+    onSecondary = RetroDarkBrown,
+    secondaryContainer = PixelGold,
+    onSecondaryContainer = RetroDarkBrown,
+    background = RetroBeige,
+    onBackground = RetroDarkBrown,
+    surface = RetroBeige,
+    onSurface = RetroDarkBrown,
+    outline = RetroDarkBrown
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val PixelDarkColorScheme = darkColorScheme(
+    primary = PixelGreen,
+    onPrimary = RetroBeige,
+    secondary = PixelGold,
+    onSecondary = RetroDarkBrown,
+    background = RetroDarkBrown, // Darker background for dark mode
+    onBackground = RetroBeige,
+    surface = RetroDarkBrown,
+    onSurface = RetroBeige,
+    outline = RetroBeige
 )
 
 @Composable
 fun BasicStateCodelabTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Disabled by default to enforce Pixel Art style
+    dynamicColor: Boolean = false, 
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -64,16 +72,16 @@ fun BasicStateCodelabTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> PixelDarkColorScheme
+        else -> PixelLightColorScheme
     }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 

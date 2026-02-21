@@ -17,6 +17,15 @@ package com.codelabs.state.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// Retro Palette
+val RetroBeige = Color(0xFFFDF6E3) // Background
+val RetroDarkBrown = Color(0xFF5D4037) // Outline / Text
+val PixelGreen = Color(0xFF76C479) // Primary
+val PixelGold = Color(0xFFFFD54F) // Secondary
+val RetroWhite = Color(0xFFFFFFFF)
+val RetroBlack = Color(0xFF212121)
+
+// Legacy Colors (keeping them just in case, or removing if not needed. Let's keep for safety)
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
 val Pink80 = Color(0xFFEFB8C8)
