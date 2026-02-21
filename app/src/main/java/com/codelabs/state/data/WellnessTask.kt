@@ -10,5 +10,6 @@ data class WellnessTask(
     val label: String,
     val timeInMillis: Long,
     val rrule: String? = null,
-    val checked: Boolean = false
+    val checked: Boolean = false,
+    val calendarEventId: Long? = null
 )

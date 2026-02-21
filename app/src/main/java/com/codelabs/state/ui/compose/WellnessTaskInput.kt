@@ -1,5 +1,10 @@
 package com.codelabs.state.ui.compose// WellnessTaskInput.kt
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,14 +42,19 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.codelabs.state.data.RecurrenceType
-import com.codelabs.state.utils.IntentUtils.addCalendarEvent
+import com.codelabs.state.utils.IntentUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -53,10 +63,11 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WellnessTaskInput(
-    onTaskAddAndSync: (String, Long, String?) -> Unit,
+    onTaskAddAndSync: (String, Long, String?, Long?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // --- 状态定义 ---
     var title by remember { mutableStateOf("") }
@@ -102,6 +113,19 @@ fun WellnessTaskInput(
     var recurrenceInterval by remember { mutableStateOf("1") } // 间隔，默认为1
     var isDropdownExpanded by remember { mutableStateOf(false) } // 下拉菜单开关
 
+    // 权限请求启动器
+    val calendarPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            val granted = permissions[Manifest.permission.WRITE_CALENDAR] == true &&
+                          permissions[Manifest.permission.READ_CALENDAR] == true
+            if (granted) {
+                Toast.makeText(context, "日历权限已获取，请再次点击添加", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "需要日历权限才能同步添加", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
 
     Column(modifier = modifier.padding(16.dp)) {
 
@@ -211,29 +235,48 @@ fun WellnessTaskInput(
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 if (title.isNotBlank()) {
-                    // --- 核心逻辑：生成 RRULE ---
-                    val rruleString = if (recurrenceType != RecurrenceType.NONE) {
-                        // 格式：FREQ=WEEKLY;INTERVAL=2
-                        val interval = recurrenceInterval.toIntOrNull() ?: 1
-                        "FREQ=${recurrenceType.rruleValue};INTERVAL=$interval"
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.WRITE_CALENDAR
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (!hasPermission) {
+                        calendarPermissionLauncher.launch(
+                            arrayOf(Manifest.permission.WRITE_CALENDAR, Manifest.permission.READ_CALENDAR)
+                        )
                     } else {
-                        null
+                        // --- 核心逻辑：生成 RRULE ---
+                        val rruleString = if (recurrenceType != RecurrenceType.NONE) {
+                            // 格式：FREQ=WEEKLY;INTERVAL=2
+                            val interval = recurrenceInterval.toIntOrNull() ?: 1
+                            "FREQ=${recurrenceType.rruleValue};INTERVAL=$interval"
+                        } else {
+                            null
+                        }
+
+                        scope.launch {
+                            // 在后台添加日历事件
+                            val eventId = withContext(Dispatchers.IO) {
+                                IntentUtils.addCalendarEvent(
+                                    context,
+                                    title,
+                                    startTime.timeInMillis,
+                                    endTime.timeInMillis,
+                                    rruleString
+                                )
+                            }
+                            
+                            // 执行回调，保存到数据库
+                            onTaskAddAndSync(title, startTime.timeInMillis, rruleString, eventId)
+                            
+                            // 提示
+                            if (eventId != null) {
+                                Toast.makeText(context, "已添加到日历", Toast.LENGTH_SHORT).show()
+                            }
+                            
+                            // 重置输入
+                            title = ""
+                        }
                     }
-
-                    // 执行回调
-                    onTaskAddAndSync(title, startTime.timeInMillis, rruleString)
-
-                    // 唤起日历
-                    addCalendarEvent(
-                        context,
-                        title,
-                        startTime.timeInMillis,
-                        endTime.timeInMillis,
-                        rruleString
-                    )
-
-                    // 重置输入
-                    title = ""
                 }
             }
         ) {
@@ -290,11 +333,12 @@ fun WellnessTaskInput(
                             newEnd.set(year, month, day)
                             endTime = newEnd
                         }
+                        showDatePicker = false
                     }
                 ) { Text("确定") }
             },
             dismissButton = {
-                TextButton(onClick = { }) { Text("取消") }
+                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
             }
         ) {
             DatePicker(state = datePickerState)

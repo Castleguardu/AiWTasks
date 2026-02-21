@@ -21,6 +21,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.codelabs.state.WellnessApplication
 import com.codelabs.state.data.WellnessTask
+import com.codelabs.state.utils.IntentUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class WellnessViewModel(application: Application) : AndroidViewModel(application) {
@@ -42,13 +44,14 @@ class WellnessViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun addTask(title: String, timeInMillis: Long, rrule: String?) {
+    fun addTask(title: String, timeInMillis: Long, rrule: String?, calendarEventId: Long? = null) {
         viewModelScope.launch {
             val newTask = WellnessTask(
                 label = title,
                 timeInMillis = timeInMillis,
                 rrule = rrule,
-                checked = false
+                checked = false,
+                calendarEventId = calendarEventId
             )
             dao.insert(newTask)
         }
@@ -56,6 +59,13 @@ class WellnessViewModel(application: Application) : AndroidViewModel(application
 
     fun remove(item: WellnessTask) {
         viewModelScope.launch {
+            // 如果任务有关联的日历事件，尝试删除
+            if (item.calendarEventId != null) {
+                // 在后台线程执行删除操作
+                launch(Dispatchers.IO) {
+                    IntentUtils.deleteTaskFromCalendar(getApplication(), item.calendarEventId)
+                }
+            }
             dao.delete(item)
         }
     }
@@ -63,6 +73,12 @@ class WellnessViewModel(application: Application) : AndroidViewModel(application
 
     fun changeTaskChecked(item: WellnessTask, checked: Boolean) {
         viewModelScope.launch {
+            if (checked && item.calendarEventId != null) {
+                // 如果标记完成，更新日历标题
+                 launch(Dispatchers.IO) {
+                    IntentUtils.markTaskAsCompletedInCalendar(getApplication(), item.calendarEventId, item.label)
+                }
+            }
             dao.update(item.copy(checked = checked))
         }
     }

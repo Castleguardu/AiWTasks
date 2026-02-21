@@ -30,15 +30,13 @@ fun WellnessScreen(
 
         // 1. 顶部的输入区域 (我们刚才自定义的组件)
         WellnessTaskInput(
-            onTaskAddAndSync = { title, time, rrule ->
+            onTaskAddAndSync = { title, time, rrule, eventId ->
                 // 这里处理两个逻辑：
 
                 // A. 更新 App 内部的列表显示
-                // (注意：这里我们暂时忽略了 time 和 rrule，因为 App 内部列表还没做那么复杂)
-                wellnessViewModel.addTask(title, time, rrule)
+                wellnessViewModel.addTask(title, time, rrule, eventId)
 
                 // B. 日历同步逻辑已经在 WellnessTaskInput 内部通过 addCalendarEvent 触发了
-                // 如果你想把逻辑提纯，也可以把 addCalendarEvent 移到这里调用
             }
         )
 
