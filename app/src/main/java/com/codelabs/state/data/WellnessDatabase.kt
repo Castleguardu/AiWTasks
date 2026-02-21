@@ -5,10 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [WellnessTask::class, UserStats::class], version = 3, exportSchema = false)
+@Database(entities = [WellnessTask::class, UserStats::class, RewardItem::class], version = 4, exportSchema = false)
 abstract class WellnessDatabase : RoomDatabase() {
     abstract fun wellnessTaskDao(): WellnessTaskDao
-    abstract fun userStatsDao(): UserStatsDao // 新增：用户状态DAO
+    abstract fun userStatsDao(): UserStatsDao
+    abstract fun rewardItemDao(): RewardItemDao // 新增
 
     companion object {
         @Volatile

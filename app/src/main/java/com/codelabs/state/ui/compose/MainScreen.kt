@@ -46,6 +46,7 @@ import com.codelabs.state.ui.theme.PixelGold
 import com.codelabs.state.ui.theme.PixelGreen
 import com.codelabs.state.ui.theme.RetroBeige
 import com.codelabs.state.ui.theme.RetroDarkBrown
+import com.codelabs.state.viewmodel.ShopViewModel
 import com.codelabs.state.viewmodel.TasksViewModel
 
 // 定义路由常量
@@ -60,6 +61,9 @@ private object Routes {
 fun MainScreen(
     tasksViewModel: TasksViewModel = viewModel(
         factory = TasksViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
+    ),
+    shopViewModel: ShopViewModel = viewModel(
+        factory = ShopViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
     )
 ) {
     val navController = rememberNavController()
@@ -175,9 +179,8 @@ fun MainScreen(
         }
     ) { innerPadding ->
         
-        // 如果显示添加对话框，这里可以是一个 ModalBottomSheet 或者 Dialog
+        // 如果显示添加对话框
         if (showAddTaskDialog) {
-             // 简单的对话框包裹 WellnessTaskInput
              androidx.compose.ui.window.Dialog(onDismissRequest = { showAddTaskDialog = false }) {
                  androidx.compose.material3.Surface(
                      shape = RoundedCornerShape(8.dp),
@@ -200,21 +203,19 @@ fun MainScreen(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Routes.TASKS) {
-                // 这里传入 TasksViewModel
                 TasksScreen(tasksViewModel = tasksViewModel)
             }
             composable(Routes.SCHEDULE) {
                 PlaceholderScreen("日程表功能开发中...")
             }
             composable(Routes.STORE) {
-                PlaceholderScreen("商店功能开发中...")
+                // 替换为真正的 ShopScreen
+                ShopScreen(shopViewModel = shopViewModel)
             }
         }
     }
 }
 
-// TasksScreen 需要在 TasksScreen.kt 中定义，这里不需要重复
-// PlaceholderScreen 保持不变
 @Composable
 fun PlaceholderScreen(text: String) {
     Box(
