@@ -1,4 +1,5 @@
-package com.codelabs.state.ui.compose// WellnessTaskInput.kt
+package com.codelabs.state.ui.compose
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -19,21 +20,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -42,7 +39,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,10 +47,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.codelabs.state.data.RecurrenceType
-import com.codelabs.state.utils.IntentUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -63,73 +55,50 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WellnessTaskInput(
-    onTaskAddAndSync: (String, Long, String?, Long?) -> Unit,
+    onTaskAdd: (String, Long, String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     // --- 状态定义 ---
     var title by remember { mutableStateOf("") }
-
-    // 时间状态：默认开始是现在，结束是1小时后
     var startTime by remember { mutableStateOf(Calendar.getInstance()) }
     var endTime by remember {
         mutableStateOf(Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, 1) })
     }
-
-    // 2. 定义一个 Key，用来强制重置 TimePicker
     var pickerKey by remember { mutableIntStateOf(0) }
-
-    // 3. 标记当前是选 Start 还是 End
     var isSelectingStartTime by remember { mutableStateOf(true) }
 
-    // 4. 根据当前模式，计算 TimePicker 应该显示的初始时间
     val initialHour = if (isSelectingStartTime) startTime.get(Calendar.HOUR_OF_DAY) else endTime.get(Calendar.HOUR_OF_DAY)
     val initialMinute = if (isSelectingStartTime) startTime.get(Calendar.MINUTE) else endTime.get(Calendar.MINUTE)
 
-    // 5. ✅ 核心修改：使用 key() 包裹 rememberTimePickerState
-    // 当 pickerKey 变化时，这个 State 会被销毁并重新创建，从而应用新的 initialHour
     val timePickerState = key(pickerKey) {
-        rememberTimePickerState(
-            initialHour = initialHour,
-            initialMinute = initialMinute,
-            is24Hour = true
-        )
+        rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute, is24Hour = true)
     }
 
-    // Date Picker State
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = startTime.timeInMillis
-    )
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = startTime.timeInMillis)
     val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
-
-    // 控制弹窗显示
     var showTimePicker by remember { mutableStateOf(false) }
 
-    // 重复规则状态
     var recurrenceType by remember { mutableStateOf(RecurrenceType.NONE) }
-    var recurrenceInterval by remember { mutableStateOf("1") } // 间隔，默认为1
-    var isDropdownExpanded by remember { mutableStateOf(false) } // 下拉菜单开关
+    var recurrenceInterval by remember { mutableStateOf("1") }
+    var isDropdownExpanded by remember { mutableStateOf(false) }
 
-    // 权限请求启动器
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { permissions ->
-            val granted = permissions[Manifest.permission.WRITE_CALENDAR] == true &&
-                          permissions[Manifest.permission.READ_CALENDAR] == true
+            val granted = permissions[Manifest.permission.WRITE_CALENDAR] == true
             if (granted) {
                 Toast.makeText(context, "日历权限已获取，请再次点击添加", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(context, "需要日历权限才能同步添加", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "权限被拒绝，任务将仅保存到本地，不同步日历", Toast.LENGTH_SHORT).show()
             }
         }
     )
 
     Column(modifier = modifier.padding(16.dp)) {
 
-        // 1. 输入任务标题
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
@@ -152,7 +121,7 @@ fun WellnessTaskInput(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 2. 时间显示与选择行
+        // Time Selection
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -161,7 +130,7 @@ fun WellnessTaskInput(
             OutlinedButton(
                 onClick = {
                     isSelectingStartTime = true
-                    pickerKey++ // ✅ 关键：点击时改变 Key，强制 TimePicker 刷新初始值
+                    pickerKey++
                     showTimePicker = true
                 }
             ) {
@@ -170,11 +139,10 @@ fun WellnessTaskInput(
 
             Text("-")
 
-            // 2. 结束时间按钮
             OutlinedButton(
                 onClick = {
                     isSelectingStartTime = false
-                    pickerKey++ // ✅ 关键：点击时改变 Key
+                    pickerKey++
                     showTimePicker = true
                 }
             ) {
@@ -184,12 +152,11 @@ fun WellnessTaskInput(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 3. 重复规则行 (频率下拉 + 间隔输入)
+        // Recurrence
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 下拉菜单盒子
             Box(modifier = Modifier.weight(1f)) {
                 OutlinedButton(
                     onClick = { isDropdownExpanded = true },
@@ -197,7 +164,6 @@ fun WellnessTaskInput(
                 ) {
                     Text(recurrenceType.label)
                 }
-
                 DropdownMenu(
                     expanded = isDropdownExpanded,
                     onDismissRequest = { isDropdownExpanded = false }
@@ -213,15 +179,13 @@ fun WellnessTaskInput(
                     }
                 }
             }
-
-            // 如果选择了重复，显示间隔输入框
             if (recurrenceType != RecurrenceType.NONE) {
                 Spacer(modifier = Modifier.width(8.dp))
                 OutlinedTextField(
                     value = recurrenceInterval,
                     onValueChange = { if (it.all { char -> char.isDigit() }) recurrenceInterval = it },
-                    label = { Text("每x(天/周)") },
-                    modifier = Modifier.width(100.dp),
+                    label = { Text("间隔") },
+                    modifier = Modifier.width(80.dp),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -230,7 +194,6 @@ fun WellnessTaskInput(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 4. 同步按钮
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = {
@@ -244,38 +207,16 @@ fun WellnessTaskInput(
                             arrayOf(Manifest.permission.WRITE_CALENDAR, Manifest.permission.READ_CALENDAR)
                         )
                     } else {
-                        // --- 核心逻辑：生成 RRULE ---
                         val rruleString = if (recurrenceType != RecurrenceType.NONE) {
-                            // 格式：FREQ=WEEKLY;INTERVAL=2
                             val interval = recurrenceInterval.toIntOrNull() ?: 1
                             "FREQ=${recurrenceType.rruleValue};INTERVAL=$interval"
                         } else {
                             null
                         }
-
-                        scope.launch {
-                            // 在后台添加日历事件
-                            val eventId = withContext(Dispatchers.IO) {
-                                IntentUtils.addCalendarEvent(
-                                    context,
-                                    title,
-                                    startTime.timeInMillis,
-                                    endTime.timeInMillis,
-                                    rruleString
-                                )
-                            }
-                            
-                            // 执行回调，保存到数据库
-                            onTaskAddAndSync(title, startTime.timeInMillis, rruleString, eventId)
-                            
-                            // 提示
-                            if (eventId != null) {
-                                Toast.makeText(context, "已添加到日历", Toast.LENGTH_SHORT).show()
-                            }
-                            
-                            // 重置输入
-                            title = ""
-                        }
+                        
+                        onTaskAdd(title, startTime.timeInMillis, rruleString)
+                        
+                        title = ""
                     }
                 }
             }
@@ -283,30 +224,22 @@ fun WellnessTaskInput(
             Text("添加到日历")
         }
     }
-
-    // --- 弹窗组件 ---
+    
     if (showTimePicker) {
-        TimePickerDialog(
+        CustomTimePickerDialog(
             onDismissRequest = { showTimePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    // 保存时间
                     val targetCalendar = if (isSelectingStartTime) startTime else endTime
                     targetCalendar.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
                     targetCalendar.set(Calendar.MINUTE, timePickerState.minute)
-                    // 触发 State 更新
                     if (isSelectingStartTime) startTime = targetCalendar.clone() as Calendar
                     else endTime = targetCalendar.clone() as Calendar
-
                     showTimePicker = false
                 }) { Text("确定") }
             },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("取消") }
-            }
-        ) {
-            TimePicker(state = timePickerState)
-        }
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("取消") } }
+        ) { TimePicker(state = timePickerState) }
     }
 
     if (showDatePicker) {
@@ -318,17 +251,14 @@ fun WellnessTaskInput(
                         datePickerState.selectedDateMillis?.let { millis ->
                             val utcCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
                             utcCalendar.timeInMillis = millis
-
                             val year = utcCalendar.get(Calendar.YEAR)
                             val month = utcCalendar.get(Calendar.MONTH)
                             val day = utcCalendar.get(Calendar.DAY_OF_MONTH)
-
-                            // Update Start Time Date
+                            
                             val newStart = startTime.clone() as Calendar
                             newStart.set(year, month, day)
                             startTime = newStart
-
-                            // Update End Time Date
+                            
                             val newEnd = endTime.clone() as Calendar
                             newEnd.set(year, month, day)
                             endTime = newEnd
@@ -337,16 +267,11 @@ fun WellnessTaskInput(
                     }
                 ) { Text("确定") }
             },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("取消") } }
+        ) { DatePicker(state = datePickerState) }
     }
 }
 
-// 辅助函数：格式化时间显示
 @SuppressLint("DefaultLocale")
 fun formatTime(calendar: Calendar): String {
     val hour = calendar.get(Calendar.HOUR_OF_DAY)
@@ -354,9 +279,8 @@ fun formatTime(calendar: Calendar): String {
     return String.format("%02d:%02d", hour, minute)
 }
 
-// 5. 辅助组件：因为 Material3 没有直接提供 TimePickerDialog，我们需要自己封装一个通用的
 @Composable
-fun TimePickerDialog(
+fun CustomTimePickerDialog(
     onDismissRequest: () -> Unit,
     confirmButton: @Composable () -> Unit,
     dismissButton: @Composable (() -> Unit)?,
@@ -366,9 +290,6 @@ fun TimePickerDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
         dismissButton = dismissButton,
-        text = {
-            // 这里放 TimePicker 的内容
-            content()
-        }
+        text = { content() }
     )
 }

@@ -2,14 +2,8 @@ package com.codelabs.state.ui.compose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,25 +23,30 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.codelabs.state.ui.theme.BasicStateCodelabTheme
+import com.codelabs.state.WellnessApplication
 import com.codelabs.state.ui.theme.PixelGold
 import com.codelabs.state.ui.theme.PixelGreen
 import com.codelabs.state.ui.theme.RetroBeige
 import com.codelabs.state.ui.theme.RetroDarkBrown
+import com.codelabs.state.viewmodel.TasksViewModel
 
 // 定义路由常量
 private object Routes {
@@ -58,8 +57,18 @@ private object Routes {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    tasksViewModel: TasksViewModel = viewModel(
+        factory = TasksViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
+    )
+) {
     val navController = rememberNavController()
+    
+    // 控制是否显示添加任务对话框（或者跳转到添加页面）
+    var showAddTaskDialog by remember { mutableStateOf(false) }
+
+    // 监听玩家状态用于 TopAppBar
+    val userStats by tasksViewModel.userStats.collectAsState()
 
     Scaffold(
         containerColor = RetroBeige,
@@ -81,7 +90,8 @@ fun MainScreen() {
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = "Lv.5 | 💰 250",
+                            // 动态展示：如果 userStats 为 null，显示加载中或默认值
+                            text = if (userStats != null) "Lv.${userStats!!.level} | 💰 ${userStats!!.gold}" else "Loading...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = PixelGold,
                             fontWeight = FontWeight.Bold
@@ -97,7 +107,7 @@ fun MainScreen() {
                     width = 3.dp,
                     color = RetroDarkBrown,
                     shape = RectangleShape
-                ) // 给 TopBar 加个下边框效果（通过整体边框模拟，实际只想要下边框可能需要自定义 Modifier，这里简单处理）
+                ) 
             )
         },
         bottomBar = {
@@ -153,7 +163,7 @@ fun MainScreen() {
             // 仅在任务板显示 FAB
             if (currentRoute == Routes.TASKS) {
                 FloatingActionButton(
-                    onClick = { /* TODO: Open Add Task Dialog */ },
+                    onClick = { showAddTaskDialog = true },
                     containerColor = PixelGreen,
                     contentColor = RetroDarkBrown,
                     shape = RoundedCornerShape(4.dp), // 低圆角，接近方形
@@ -164,13 +174,34 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
+        
+        // 如果显示添加对话框，这里可以是一个 ModalBottomSheet 或者 Dialog
+        if (showAddTaskDialog) {
+             // 简单的对话框包裹 WellnessTaskInput
+             androidx.compose.ui.window.Dialog(onDismissRequest = { showAddTaskDialog = false }) {
+                 androidx.compose.material3.Surface(
+                     shape = RoundedCornerShape(8.dp),
+                     color = RetroBeige,
+                     modifier = Modifier.padding(16.dp).border(3.dp, RetroDarkBrown, RoundedCornerShape(8.dp))
+                 ) {
+                     WellnessTaskInput(
+                         onTaskAdd = { title, time, rrule ->
+                             tasksViewModel.onTaskAdded(title, time, rrule)
+                             showAddTaskDialog = false
+                         }
+                     )
+                 }
+             }
+        }
+
         NavHost(
             navController = navController,
             startDestination = Routes.TASKS,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Routes.TASKS) {
-                TasksScreen()
+                // 这里传入 TasksViewModel
+                TasksScreen(tasksViewModel = tasksViewModel)
             }
             composable(Routes.SCHEDULE) {
                 PlaceholderScreen("日程表功能开发中...")
@@ -182,64 +213,8 @@ fun MainScreen() {
     }
 }
 
-@Composable
-fun TasksScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // 模拟测试数据
-        PixelCard {
-            Column {
-                Text(
-                    text = "给海莉送向日葵",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = RetroDarkBrown
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "好感度 +1",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = RetroDarkBrown.copy(alpha = 0.8f)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(
-                        text = "💰50 | ✨10",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = PixelGold,
-                        modifier = Modifier
-                            .background(RetroDarkBrown, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-        }
-        
-        // 可以再复制一个看列表效果
-        PixelCard {
-            Column {
-                Text(
-                    text = "浇灌农场作物",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = RetroDarkBrown
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "每日必做任务",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = RetroDarkBrown.copy(alpha = 0.8f)
-                )
-            }
-        }
-    }
-}
-
+// TasksScreen 需要在 TasksScreen.kt 中定义，这里不需要重复
+// PlaceholderScreen 保持不变
 @Composable
 fun PlaceholderScreen(text: String) {
     Box(
@@ -251,13 +226,5 @@ fun PlaceholderScreen(text: String) {
             style = MaterialTheme.typography.headlineSmall,
             color = RetroDarkBrown
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainScreenPreview() {
-    BasicStateCodelabTheme {
-        MainScreen()
     }
 }

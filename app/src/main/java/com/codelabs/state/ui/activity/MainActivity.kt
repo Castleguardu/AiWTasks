@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.codelabs.state.ui.compose.WellnessScreen
+import com.codelabs.state.ui.compose.MainScreen
 import com.codelabs.state.ui.theme.BasicStateCodelabTheme
 
 class MainActivity : ComponentActivity() {
@@ -17,10 +17,11 @@ class MainActivity : ComponentActivity() {
             BasicStateCodelabTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
-                    modifier = Modifier.Companion.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WellnessScreen()
+                    // Start with the MainScreen which handles navigation and scaffold
+                    MainScreen()
                 }
             }
         }

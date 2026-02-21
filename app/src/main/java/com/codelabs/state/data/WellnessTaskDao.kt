@@ -10,8 +10,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WellnessTaskDao {
-    @Query("SELECT * FROM wellness_tasks")
-    fun getAll(): Flow<List<WellnessTask>>
+    // 修改查询语句，只返回未完成的任务
+    @Query("SELECT * FROM wellness_tasks WHERE checked = 0")
+    fun getAllActiveTasks(): Flow<List<WellnessTask>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(task: WellnessTask)

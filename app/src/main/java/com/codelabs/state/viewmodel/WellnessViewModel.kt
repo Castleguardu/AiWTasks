@@ -15,71 +15,77 @@
  */
 package com.codelabs.state.viewmodel
 
-import android.app.Application
-import androidx.compose.runtime.mutableStateListOf
-import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.toMutableStateList
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.codelabs.state.WellnessApplication
 import com.codelabs.state.data.WellnessTask
-import com.codelabs.state.utils.IntentUtils
-import kotlinx.coroutines.Dispatchers
+import com.codelabs.state.data.repository.TaskRepository
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
-class WellnessViewModel(application: Application) : AndroidViewModel(application) {
-    
-    private val dao = (application as WellnessApplication).database.wellnessTaskDao()
+class WellnessViewModel(
+    private val repository: TaskRepository
+) : ViewModel() {
 
-    // 这里的列表依然是 MutableStateList，它可以监听增删改
-    private val _tasks = mutableStateListOf<WellnessTask>()
+    // 使用 MutableStateList 以便 Compose 能够高效地重组列表项
+    // 虽然 StateFlow 是更推荐的架构，但在目前的 Codelab 基础上保持简单迁移是合理的
+    private val _tasks = ArrayList<WellnessTask>().toMutableStateList()
     val tasks: List<WellnessTask>
         get() = _tasks
 
     init {
-        // 监听数据库变化，更新 UI
+        // 监听 Repository 数据流，自动更新 UI 状态
         viewModelScope.launch {
-            dao.getAll().collect { list ->
+            repository.getAllTasks().collect { list ->
                 _tasks.clear()
                 _tasks.addAll(list)
             }
         }
     }
 
-    fun addTask(title: String, timeInMillis: Long, rrule: String?, calendarEventId: Long? = null) {
+    /**
+     * 添加任务
+     * ViewModel 不关心具体怎么存到 DB 或日历，只负责转发意图。
+     */
+    fun addTask(title: String, timeInMillis: Long, rrule: String?) {
         viewModelScope.launch {
-            val newTask = WellnessTask(
-                label = title,
-                timeInMillis = timeInMillis,
-                rrule = rrule,
-                checked = false,
-                calendarEventId = calendarEventId
-            )
-            dao.insert(newTask)
+            // 这里我们假设默认结束时间是开始时间 + 1小时，后续可以从 UI 传入
+            val endTimeMillis = timeInMillis + 3600000L 
+            repository.addTask(title, timeInMillis, endTimeMillis, rrule)
         }
     }
 
+    /**
+     * 删除任务
+     */
     fun remove(item: WellnessTask) {
         viewModelScope.launch {
-            // 如果任务有关联的日历事件，尝试删除
-            if (item.calendarEventId != null) {
-                // 在后台线程执行删除操作
-                launch(Dispatchers.IO) {
-                    IntentUtils.deleteTaskFromCalendar(getApplication(), item.calendarEventId)
-                }
-            }
-            dao.delete(item)
+            repository.deleteTask(item)
         }
     }
 
-
+    /**
+     * 切换任务完成状态
+     */
     fun changeTaskChecked(item: WellnessTask, checked: Boolean) {
         viewModelScope.launch {
-            if (checked && item.calendarEventId != null) {
-                // 如果标记完成，更新日历标题
-                 launch(Dispatchers.IO) {
-                    IntentUtils.markTaskAsCompletedInCalendar(getApplication(), item.calendarEventId, item.label)
-                }
+            if (checked) {
+                repository.completeTaskAndSync(item)
+            } else {
+                repository.updateTask(item.copy(checked = false))
             }
-            dao.update(item.copy(checked = checked))
+        }
+    }
+
+    // Factory 用于创建带参数的 ViewModel
+    @Suppress("UNCHECKED_CAST")
+    class Factory(private val repository: TaskRepository) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(WellnessViewModel::class.java)) {
+                return WellnessViewModel(repository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

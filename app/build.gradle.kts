@@ -79,6 +79,9 @@ dependencies {
     implementation("androidx.compose.foundation:foundation-layout:1.10.0")
     implementation("androidx.compose.material3:material3:1.4.0")
     
+    // Add Navigation Compose dependency
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")

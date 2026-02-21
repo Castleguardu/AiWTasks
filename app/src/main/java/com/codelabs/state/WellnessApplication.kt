@@ -5,6 +5,7 @@ import com.codelabs.state.data.WellnessDatabase
 import com.codelabs.state.data.repository.DefaultTaskRepository
 import com.codelabs.state.data.repository.TaskRepository
 import com.codelabs.state.data.source.AndroidCalendarDataSource
+import com.codelabs.state.domain.CompleteTaskUseCase
 
 class WellnessApplication : Application() {
 
@@ -13,11 +14,16 @@ class WellnessApplication : Application() {
     // 1. 初始化 Calendar 数据源 (依赖 Context)
     private val calendarDataSource by lazy { AndroidCalendarDataSource(this) }
 
-    // 2. 将 Dao 和 DataSource 注入到 Repository
+    // 2. 初始化 UseCase (纯业务逻辑，无依赖)
+    private val completeTaskUseCase by lazy { CompleteTaskUseCase() }
+
+    // 3. 将 Dao, DataSource 和 UseCase 注入到 Repository
     val taskRepository: TaskRepository by lazy {
         DefaultTaskRepository(
             taskDao = database.wellnessTaskDao(),
-            calendarDataSource = calendarDataSource
+            userStatsDao = database.userStatsDao(), // 新增注入
+            calendarDataSource = calendarDataSource,
+            completeTaskUseCase = completeTaskUseCase // 新增注入
         )
     }
 }

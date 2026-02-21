@@ -24,23 +24,24 @@ import com.codelabs.state.viewmodel.WellnessViewModel
 @Composable
 fun WellnessScreen(
     modifier: Modifier = Modifier,
-    wellnessViewModel: WellnessViewModel = viewModel()
+    // ViewModel 默认值需要根据上下文提供，但在 MainScreen 中我们已经注入了，这里可以不传默认值或者用 @Preview 做特定处理
+    // 为了兼容 MainScreen 的调用，我们移除这里的默认值，强制从外部传入，或者使用 hiltViewModel (如果引入了 Hilt)
+    // 鉴于 Codelab 现状，我们保留参数，并在预览时提供 Mock
+    wellnessViewModel: WellnessViewModel
 ) {
     Column(modifier = modifier) {
 
-        // 1. 顶部的输入区域 (我们刚才自定义的组件)
+        // 1. 顶部的输入区域
         WellnessTaskInput(
-            onTaskAddAndSync = { title, time, rrule, eventId ->
-                // 这里处理两个逻辑：
-
-                // A. 更新 App 内部的列表显示
-                wellnessViewModel.addTask(title, time, rrule, eventId)
-
-                // B. 日历同步逻辑已经在 WellnessTaskInput 内部通过 addCalendarEvent 触发了
+            // 回调签名已更新：(String, Long, String?) -> Unit
+            onTaskAdd = { title, time, rrule ->
+                // UI 层只负责把意图传递给 ViewModel
+                // ViewModel 会调用 Repository，Repository 会处理 Room 和 Calendar 的写入细节
+                wellnessViewModel.addTask(title, time, rrule)
             }
         )
 
-        // 2. 中间的任务列表 (Codelab 自带的列表)
+        // 2. 中间的任务列表
         WellnessTasksList(
             list = wellnessViewModel.tasks,
             onCheckedTask = { task, checked ->
