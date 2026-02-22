@@ -5,6 +5,7 @@ import com.codelabs.state.data.WellnessDatabase
 import com.codelabs.state.data.repository.DefaultTaskRepository
 import com.codelabs.state.data.repository.TaskRepository
 import com.codelabs.state.data.source.AndroidCalendarDataSource
+import com.codelabs.state.data.source.AvatarManager
 import com.codelabs.state.domain.CompleteTaskUseCase
 import com.codelabs.state.utils.ReminderManager
 
@@ -16,8 +17,10 @@ class WellnessApplication : Application() {
 
     private val completeTaskUseCase by lazy { CompleteTaskUseCase() }
     
-    // 初始化 ReminderManager
     private val reminderManager by lazy { ReminderManager(this) }
+    
+    // 公开 AvatarManager 供 ViewModel 使用
+    val avatarManager by lazy { AvatarManager(this) }
 
     val taskRepository: TaskRepository by lazy {
         DefaultTaskRepository(
@@ -26,7 +29,7 @@ class WellnessApplication : Application() {
             rewardItemDao = database.rewardItemDao(),
             calendarDataSource = calendarDataSource,
             completeTaskUseCase = completeTaskUseCase,
-            reminderManager = reminderManager // 注入 ReminderManager
+            reminderManager = reminderManager
         )
     }
 }

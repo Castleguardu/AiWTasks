@@ -1,8 +1,12 @@
 package com.codelabs.state.ui.compose
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +27,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.codelabs.state.ui.theme.PixelGold
 import com.codelabs.state.ui.theme.PixelGreen
 import com.codelabs.state.ui.theme.RetroDarkBrown
@@ -40,6 +44,16 @@ fun ProfileScreen(
 ) {
     val userStats by viewModel.userStats.collectAsState()
     val completedCount by viewModel.completedTasksCount.collectAsState()
+    val avatarFile by viewModel.avatarFile.collectAsState()
+
+    // Photo Picker Launcher
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onAvatarSelected(uri)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -52,13 +66,32 @@ fun ProfileScreen(
             PixelCard(modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 占位头像 (64x64 矩形)
+                        // 头像框 (点击触发 Picker)
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
                                 .background(Color.Gray)
                                 .border(2.dp, RetroDarkBrown)
-                        )
+                                .clickable {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (avatarFile != null) {
+                                AsyncImage(
+                                    model = avatarFile,
+                                    contentDescription = "Avatar",
+                                    contentScale = ContentScale.FillBounds, // 拉伸填满，像素风通常不需要裁剪
+                                    // Coil 默认会平滑，我们需要它呈现像素感。
+                                    // 实际上这里的 File 已经是像素化后的图了，所以无论怎么显示都是像素风。
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Text("?", color = RetroDarkBrown)
+                            }
+                        }
 
                         Spacer(modifier = Modifier.width(16.dp))
 
@@ -74,7 +107,7 @@ fun ProfileScreen(
 
                     // 经验条
                     val exp = userStats?.currentExp ?: 0
-                    val maxExp = 100 // 假设满级经验固定 100
+                    val maxExp = 100 
                     
                     Text(
                         text = "EXP: $exp / $maxExp",
@@ -112,6 +145,13 @@ fun ProfileScreen(
             PixelCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("✨ 核心目标与羁绊", style = MaterialTheme.typography.titleMedium, color = RetroDarkBrown)
+                    
+                    MilestoneItem(
+                        title = "与海莉结婚 💖",
+                        progressText = "8/10",
+                        progress = 0.8f,
+                        color = Color(0xFFE91E63) // Pink
+                    )
                     
                     MilestoneItem(
                         title = "独立开发上架 💻",
@@ -154,10 +194,6 @@ fun MilestoneItem(title: String, progressText: String, progress: Float, color: C
     }
 }
 
-/**
- * 像素风进度条
- * 使用 Canvas 绘制纯色填充和粗边框，不带圆角
- */
 @Composable
 fun PixelProgressBar(
     progress: Float,

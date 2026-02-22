@@ -75,7 +75,11 @@ fun MainScreen(
         factory = ShopViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
     ),
     profileViewModel: ProfileViewModel = viewModel(
-        factory = ProfileViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
+        factory = ProfileViewModel.Factory(
+            (LocalContext.current.applicationContext as WellnessApplication).taskRepository,
+            (LocalContext.current.applicationContext as WellnessApplication).avatarManager,
+            LocalContext.current.applicationContext
+        )
     )
 ) {
     val navController = rememberNavController()
@@ -87,38 +91,26 @@ fun MainScreen(
     // 监听玩家状态用于 TopAppBar
     val userStats by tasksViewModel.userStats.collectAsState()
 
-    // --- 重构后的权限请求逻辑 (针对 Android 13+) ---
-    
-    // 1. 定义权限启动器
+    // --- 权限请求逻辑 ---
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
-            if (isGranted) {
-                // 权限已授予，无需操作
-            } else {
-                // 用户拒绝了权限。
-                // 只有在这里（作为兜底），才考虑展示自定义引导 Dialog (本版本暂不实现，保持纯净)
-            }
+            // Handle result
         }
     )
 
-    // 2. 触发时机
     LaunchedEffect(Unit) {
-        // 第一步：检查版本
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // 第二步：检查是否已授予
-            val hasPermission = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-
-            // 第三步：如果未授予，请求系统弹窗
-            if (!hasPermission) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
-    // ----------------------------------------------
+    // --------------------
 
     Scaffold(
         containerColor = RetroBeige,
