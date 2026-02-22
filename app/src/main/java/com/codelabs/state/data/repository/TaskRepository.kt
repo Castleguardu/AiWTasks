@@ -19,23 +19,25 @@ import kotlinx.coroutines.flow.map
 interface TaskRepository {
     fun getAllTasks(): Flow<List<WellnessTask>>
     fun getUserStats(): Flow<UserStats> 
+    fun getCompletedTasksCount(): Flow<Int> // 新增
+    
     suspend fun addTask(title: String, startTimeMillis: Long, endTimeMillis: Long, rrule: String?)
     suspend fun deleteTask(task: WellnessTask)
     suspend fun updateTask(task: WellnessTask)
     suspend fun completeTaskAndSync(task: WellnessTask)
 
-    // 新增：商店相关
+    // 商店相关
     fun getAllRewards(): Flow<List<RewardItem>>
     suspend fun addReward(item: RewardItem)
     suspend fun deleteReward(item: RewardItem)
-    suspend fun updatePlayerGold(newGold: Int) // 用于扣款
-    suspend fun ensureDefaultRewards() // 初始化默认商品
+    suspend fun updatePlayerGold(newGold: Int) 
+    suspend fun ensureDefaultRewards() 
 }
 
 class DefaultTaskRepository(
     private val taskDao: WellnessTaskDao,
     private val userStatsDao: UserStatsDao,
-    private val rewardItemDao: RewardItemDao, // 新增注入
+    private val rewardItemDao: RewardItemDao,
     private val calendarDataSource: CalendarDataSource,
     private val completeTaskUseCase: CompleteTaskUseCase
 ) : TaskRepository {
@@ -45,7 +47,10 @@ class DefaultTaskRepository(
     override fun getUserStats(): Flow<UserStats> = userStatsDao.getUserStatsFlow()
         .map { it ?: UserStats() }
 
-    // ... (保持原有的 addTask, deleteTask, completeTaskAndSync 等方法不变) ...
+    // 新增实现
+    override fun getCompletedTasksCount(): Flow<Int> = taskDao.getCompletedTasksCount()
+
+    // ... (保持原有方法不变) ...
     override suspend fun addTask(title: String, startTimeMillis: Long, endTimeMillis: Long, rrule: String?) {
         var calendarEventId: Long? = null
         try {
@@ -105,19 +110,14 @@ class DefaultTaskRepository(
         }
     }
 
-    // --- 新增实现 ---
-
+    // 商店相关实现保持不变
     override fun getAllRewards(): Flow<List<RewardItem>> = rewardItemDao.getAllRewards()
-
     override suspend fun addReward(item: RewardItem) = rewardItemDao.insert(item)
-    
     override suspend fun deleteReward(item: RewardItem) = rewardItemDao.delete(item)
-
     override suspend fun updatePlayerGold(newGold: Int) {
         val currentStats = userStatsDao.getUserStats() ?: UserStats()
         userStatsDao.insertOrUpdate(currentStats.copy(gold = newGold))
     }
-
     override suspend fun ensureDefaultRewards() {
         if (rewardItemDao.count() == 0) {
             val defaults = listOf(

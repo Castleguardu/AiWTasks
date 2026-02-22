@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -46,13 +47,14 @@ import com.codelabs.state.ui.theme.PixelGold
 import com.codelabs.state.ui.theme.PixelGreen
 import com.codelabs.state.ui.theme.RetroBeige
 import com.codelabs.state.ui.theme.RetroDarkBrown
+import com.codelabs.state.viewmodel.ProfileViewModel
 import com.codelabs.state.viewmodel.ShopViewModel
 import com.codelabs.state.viewmodel.TasksViewModel
 
 // 定义路由常量
 private object Routes {
     const val TASKS = "Tasks"
-    const val SCHEDULE = "Schedule"
+    const val PROFILE = "Profile" // 原 Schedule 改为 Profile
     const val STORE = "Store"
 }
 
@@ -64,11 +66,14 @@ fun MainScreen(
     ),
     shopViewModel: ShopViewModel = viewModel(
         factory = ShopViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
+    ),
+    profileViewModel: ProfileViewModel = viewModel(
+        factory = ProfileViewModel.Factory((LocalContext.current.applicationContext as WellnessApplication).taskRepository)
     )
 ) {
     val navController = rememberNavController()
     
-    // 控制是否显示添加任务对话框（或者跳转到添加页面）
+    // 控制是否显示添加任务对话框
     var showAddTaskDialog by remember { mutableStateOf(false) }
 
     // 监听玩家状态用于 TopAppBar
@@ -94,7 +99,6 @@ fun MainScreen(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            // 动态展示：如果 userStats 为 null，显示加载中或默认值
                             text = if (userStats != null) "Lv.${userStats!!.level} | 💰 ${userStats!!.gold}" else "Loading...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = PixelGold,
@@ -115,7 +119,6 @@ fun MainScreen(
             )
         },
         bottomBar = {
-            // 获取当前路由，用于选中状态
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = navBackStackEntry?.destination
 
@@ -130,7 +133,7 @@ fun MainScreen(
             ) {
                 val items = listOf(
                     Triple(Routes.TASKS, "任务板", Icons.Default.List),
-                    Triple(Routes.SCHEDULE, "日程表", Icons.Default.DateRange),
+                    Triple(Routes.PROFILE, "我的", Icons.Default.Person), // 修改这里
                     Triple(Routes.STORE, "商店", Icons.Default.ShoppingCart)
                 )
 
@@ -150,9 +153,9 @@ fun MainScreen(
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = RetroBeige, // 选中时图标变浅色
+                            selectedIconColor = RetroBeige, 
                             selectedTextColor = RetroDarkBrown,
-                            indicatorColor = PixelGreen, // 选中背景色
+                            indicatorColor = PixelGreen, 
                             unselectedIconColor = RetroDarkBrown,
                             unselectedTextColor = RetroDarkBrown.copy(alpha = 0.7f)
                         )
@@ -164,13 +167,12 @@ fun MainScreen(
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = navBackStackEntry?.destination?.route
 
-            // 仅在任务板显示 FAB
             if (currentRoute == Routes.TASKS) {
                 FloatingActionButton(
                     onClick = { showAddTaskDialog = true },
                     containerColor = PixelGreen,
                     contentColor = RetroDarkBrown,
-                    shape = RoundedCornerShape(4.dp), // 低圆角，接近方形
+                    shape = RoundedCornerShape(4.dp), 
                     modifier = Modifier.border(2.dp, RetroDarkBrown, RoundedCornerShape(4.dp))
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Task")
@@ -179,7 +181,6 @@ fun MainScreen(
         }
     ) { innerPadding ->
         
-        // 如果显示添加对话框
         if (showAddTaskDialog) {
              androidx.compose.ui.window.Dialog(onDismissRequest = { showAddTaskDialog = false }) {
                  androidx.compose.material3.Surface(
@@ -205,27 +206,13 @@ fun MainScreen(
             composable(Routes.TASKS) {
                 TasksScreen(tasksViewModel = tasksViewModel)
             }
-            composable(Routes.SCHEDULE) {
-                PlaceholderScreen("日程表功能开发中...")
+            composable(Routes.PROFILE) {
+                // 替换为 ProfileScreen
+                ProfileScreen(viewModel = profileViewModel)
             }
             composable(Routes.STORE) {
-                // 替换为真正的 ShopScreen
                 ShopScreen(shopViewModel = shopViewModel)
             }
         }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(text: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.headlineSmall,
-            color = RetroDarkBrown
-        )
     }
 }
