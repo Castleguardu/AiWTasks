@@ -79,8 +79,11 @@ dependencies {
     implementation("androidx.compose.foundation:foundation-layout:1.10.0")
     implementation("androidx.compose.material3:material3:1.4.0")
     
-    // Add Navigation Compose dependency
     implementation("androidx.navigation:navigation-compose:2.8.5")
+    
+    // WorkManager dependency
+    val work_version = "2.9.0"
+    implementation("androidx.work:work-runtime-ktx:$work_version")
 
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")

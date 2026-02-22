@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 像素风格的剑 (简化版) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M19,3 L21,5 L19,7 L17,5 Z M10,12 L17,5 L19,7 L12,14 Z M8,14 L10,16 L6,20 L4,18 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,18 L6,20 L3,23 L1,21 Z" />
+</vector>

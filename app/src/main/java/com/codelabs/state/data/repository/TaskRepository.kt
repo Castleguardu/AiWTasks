@@ -9,24 +9,21 @@ import com.codelabs.state.data.WellnessTask
 import com.codelabs.state.data.WellnessTaskDao
 import com.codelabs.state.data.source.CalendarDataSource
 import com.codelabs.state.domain.CompleteTaskUseCase
+import com.codelabs.state.utils.ReminderManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/**
- * TaskRepository
- * 职责：数据的单一事实来源。协调本地数据库 (Room) 和 外部数据源 (Calendar) 以及 玩家状态 (UserStats) 和 商店商品 (RewardItems)。
- */
 interface TaskRepository {
-    fun getAllTasks(): Flow<List<WellnessTask>>
+    fun getAllActiveTasks(): Flow<List<WellnessTask>> // 重命名以明确意图
+    fun getAllCompletedTasks(): Flow<List<WellnessTask>> // 新增
     fun getUserStats(): Flow<UserStats> 
-    fun getCompletedTasksCount(): Flow<Int> // 新增
+    fun getCompletedTasksCount(): Flow<Int>
     
     suspend fun addTask(title: String, startTimeMillis: Long, endTimeMillis: Long, rrule: String?)
     suspend fun deleteTask(task: WellnessTask)
     suspend fun updateTask(task: WellnessTask)
     suspend fun completeTaskAndSync(task: WellnessTask)
 
-    // 商店相关
     fun getAllRewards(): Flow<List<RewardItem>>
     suspend fun addReward(item: RewardItem)
     suspend fun deleteReward(item: RewardItem)
@@ -39,18 +36,20 @@ class DefaultTaskRepository(
     private val userStatsDao: UserStatsDao,
     private val rewardItemDao: RewardItemDao,
     private val calendarDataSource: CalendarDataSource,
-    private val completeTaskUseCase: CompleteTaskUseCase
+    private val completeTaskUseCase: CompleteTaskUseCase,
+    private val reminderManager: ReminderManager
 ) : TaskRepository {
 
-    override fun getAllTasks(): Flow<List<WellnessTask>> = taskDao.getAllActiveTasks()
+    override fun getAllActiveTasks(): Flow<List<WellnessTask>> = taskDao.getAllActiveTasks()
+    
+    override fun getAllCompletedTasks(): Flow<List<WellnessTask>> = taskDao.getAllCompletedTasks()
 
     override fun getUserStats(): Flow<UserStats> = userStatsDao.getUserStatsFlow()
         .map { it ?: UserStats() }
 
-    // 新增实现
     override fun getCompletedTasksCount(): Flow<Int> = taskDao.getCompletedTasksCount()
 
-    // ... (保持原有方法不变) ...
+    // ... (其他方法保持不变) ...
     override suspend fun addTask(title: String, startTimeMillis: Long, endTimeMillis: Long, rrule: String?) {
         var calendarEventId: Long? = null
         try {
@@ -70,7 +69,9 @@ class DefaultTaskRepository(
             checked = false,
             calendarEventId = calendarEventId
         )
-        taskDao.insert(newTask)
+        val rowId = taskDao.insert(newTask)
+        val insertedTask = newTask.copy(id = rowId.toInt())
+        reminderManager.scheduleReminder(insertedTask)
     }
 
     override suspend fun deleteTask(task: WellnessTask) {
@@ -81,11 +82,13 @@ class DefaultTaskRepository(
                 Log.e("TaskRepository", "Failed to delete calendar event: $eventId", e)
             }
         }
+        reminderManager.cancelReminder(task.id)
         taskDao.delete(task)
     }
 
     override suspend fun updateTask(task: WellnessTask) {
         taskDao.update(task)
+        reminderManager.scheduleReminder(task)
     }
 
     override suspend fun completeTaskAndSync(task: WellnessTask) {
@@ -94,6 +97,8 @@ class DefaultTaskRepository(
             val newStats = completeTaskUseCase(currentStats, task.expReward, task.goldReward)
             userStatsDao.insertOrUpdate(newStats)
             taskDao.update(task.copy(checked = true))
+            
+            reminderManager.cancelReminder(task.id)
             
             task.calendarEventId?.let { eventId ->
                 try {
@@ -110,7 +115,6 @@ class DefaultTaskRepository(
         }
     }
 
-    // 商店相关实现保持不变
     override fun getAllRewards(): Flow<List<RewardItem>> = rewardItemDao.getAllRewards()
     override suspend fun addReward(item: RewardItem) = rewardItemDao.insert(item)
     override suspend fun deleteReward(item: RewardItem) = rewardItemDao.delete(item)

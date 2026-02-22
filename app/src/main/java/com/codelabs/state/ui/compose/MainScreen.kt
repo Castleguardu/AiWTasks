@@ -1,5 +1,10 @@
 package com.codelabs.state.ui.compose
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -24,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +41,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -54,7 +61,7 @@ import com.codelabs.state.viewmodel.TasksViewModel
 // 定义路由常量
 private object Routes {
     const val TASKS = "Tasks"
-    const val PROFILE = "Profile" // 原 Schedule 改为 Profile
+    const val PROFILE = "Profile"
     const val STORE = "Store"
 }
 
@@ -72,12 +79,46 @@ fun MainScreen(
     )
 ) {
     val navController = rememberNavController()
+    val context = LocalContext.current
     
     // 控制是否显示添加任务对话框
     var showAddTaskDialog by remember { mutableStateOf(false) }
 
     // 监听玩家状态用于 TopAppBar
     val userStats by tasksViewModel.userStats.collectAsState()
+
+    // --- 重构后的权限请求逻辑 (针对 Android 13+) ---
+    
+    // 1. 定义权限启动器
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                // 权限已授予，无需操作
+            } else {
+                // 用户拒绝了权限。
+                // 只有在这里（作为兜底），才考虑展示自定义引导 Dialog (本版本暂不实现，保持纯净)
+            }
+        }
+    )
+
+    // 2. 触发时机
+    LaunchedEffect(Unit) {
+        // 第一步：检查版本
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // 第二步：检查是否已授予
+            val hasPermission = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            // 第三步：如果未授予，请求系统弹窗
+            if (!hasPermission) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+    // ----------------------------------------------
 
     Scaffold(
         containerColor = RetroBeige,
@@ -133,7 +174,7 @@ fun MainScreen(
             ) {
                 val items = listOf(
                     Triple(Routes.TASKS, "任务板", Icons.Default.List),
-                    Triple(Routes.PROFILE, "我的", Icons.Default.Person), // 修改这里
+                    Triple(Routes.PROFILE, "我的", Icons.Default.Person),
                     Triple(Routes.STORE, "商店", Icons.Default.ShoppingCart)
                 )
 
@@ -207,7 +248,6 @@ fun MainScreen(
                 TasksScreen(tasksViewModel = tasksViewModel)
             }
             composable(Routes.PROFILE) {
-                // 替换为 ProfileScreen
                 ProfileScreen(viewModel = profileViewModel)
             }
             composable(Routes.STORE) {

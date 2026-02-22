@@ -37,7 +37,8 @@ class WellnessViewModel(
     init {
         // 监听 Repository 数据流，自动更新 UI 状态
         viewModelScope.launch {
-            repository.getAllTasks().collect { list ->
+            // TaskRepository 接口已经修改，getAllTasks() 已更名为 getAllActiveTasks()
+            repository.getAllActiveTasks().collect { list ->
                 _tasks.clear()
                 _tasks.addAll(list)
             }
