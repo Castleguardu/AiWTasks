@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.MaterialTheme
@@ -69,67 +68,92 @@ fun TasksScreen(
     val scope = rememberCoroutineScope()
     val titles = listOf("当前委托", "功勋档案")
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        
-        // 自定义 TabRow
-        TabRow(
-            selectedTabIndex = pagerState.currentPage,
-            containerColor = RetroBeige,
-            contentColor = RetroDarkBrown,
-            indicator = { tabPositions ->
-                Box(
-                    modifier = Modifier
-                        .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                        .height(4.dp)
-                        .background(PixelGold)
-                )
-            },
-            divider = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(RetroDarkBrown)
-                )
-            }
-        ) {
-            titles.forEachIndexed { index, title ->
-                val selected = pagerState.currentPage == index
-                Tab(
-                    selected = selected,
-                    onClick = {
-                        scope.launch {
-                            pagerState.animateScrollToPage(index)
+    // --- 全屏动画状态 ---
+    var rewardEvent by remember { mutableStateOf<RewardData?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            
+            // TabRow
+            TabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = RetroBeige,
+                contentColor = RetroDarkBrown,
+                indicator = { tabPositions ->
+                    Box(
+                        modifier = Modifier
+                            .tabIndicatorOffset(tabPositions[pagerState.currentPage])
+                            .height(4.dp)
+                            .background(PixelGold)
+                    )
+                },
+                divider = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(RetroDarkBrown)
+                    )
+                }
+            ) {
+                titles.forEachIndexed { index, title ->
+                    val selected = pagerState.currentPage == index
+                    Tab(
+                        selected = selected,
+                        onClick = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (selected) RetroDarkBrown else RetroDarkBrown.copy(alpha = 0.5f),
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                            )
                         }
-                    },
-                    text = {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (selected) RetroDarkBrown else RetroDarkBrown.copy(alpha = 0.5f),
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                )
+                    )
+                }
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.weight(1f)
+            ) { page ->
+                if (page == 0) {
+                    // Page 0: Active Tasks
+                    ActiveTasksList(
+                        tasks = activeTasks,
+                        onTaskCompleted = { task ->
+                            // 拦截：不直接调用 VM，而是先设置动画数据
+                            rewardEvent = RewardData(
+                                coins = task.goldReward,
+                                exp = task.expReward,
+                                task = task
+                            )
+                        }
+                    )
+                } else {
+                    // Page 1: Completed Tasks
+                    CompletedTasksList(
+                        tasks = completedTasks
+                    )
+                }
             }
         }
 
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f)
-        ) { page ->
-            if (page == 0) {
-                // Page 0: Active Tasks
-                ActiveTasksList(
-                    tasks = activeTasks,
-                    onTaskCompleted = { tasksViewModel.onTaskCompleted(it) }
-                )
-            } else {
-                // Page 1: Completed Tasks (History)
-                CompletedTasksList(
-                    tasks = completedTasks
-                )
-            }
+        // --- 全屏动画遮罩 (位于最顶层) ---
+        rewardEvent?.let { data ->
+            FullScreenRewardOverlay(
+                reward = data,
+                onAnimationEnd = {
+                    // 动画结束：真正提交数据
+                    tasksViewModel.onTaskCompleted(data.task)
+                    // 重置状态
+                    rewardEvent = null
+                }
+            )
         }
     }
 }
@@ -175,62 +199,54 @@ fun TaskItem(
     task: WellnessTask,
     onTaskChecked: (Boolean) -> Unit
 ) {
-    // 动画状态：是否可见
-    var isVisible by remember { mutableStateOf(true) }
-
-    AnimatedVisibility(
-        visible = isVisible,
-        exit = fadeOut(animationSpec = tween(durationMillis = 300))
+    // 移除了局部的 FloatingEffect 逻辑，简化为纯状态展示
+    // 点击 Checkbox 直接触发回调
+    
+    PixelCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        PixelCard(
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(8.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(8.dp)
-            ) {
-                // 复选框
-                Checkbox(
-                    checked = task.checked,
-                    onCheckedChange = { checked ->
-                        if (checked) {
-                            // 触发淡出动画，然后调用 ViewModel
-                            isVisible = false
-                            onTaskChecked(true)
-                        }
-                    },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = PixelGreen,
-                        uncheckedColor = RetroDarkBrown,
-                        checkmarkColor = RetroDarkBrown
-                    )
+            Checkbox(
+                checked = task.checked,
+                onCheckedChange = { checked ->
+                    if (checked) {
+                        onTaskChecked(true)
+                    }
+                },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = PixelGreen,
+                    uncheckedColor = RetroDarkBrown,
+                    checkmarkColor = RetroDarkBrown
                 )
+            )
 
-                Column(
-                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+            Column(
+                modifier = Modifier.weight(1f).padding(start = 8.dp)
+            ) {
+                Text(
+                    text = task.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = RetroDarkBrown
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = task.label,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = RetroDarkBrown
+                        text = formatDate(task.timeInMillis),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RetroDarkBrown.copy(alpha = 0.7f)
                     )
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = formatDate(task.timeInMillis),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = RetroDarkBrown.copy(alpha = 0.7f)
-                        )
 
-                        Text(
-                            text = "💰${task.goldReward} | ✨${task.expReward}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = PixelGold
-                        )
-                    }
+                    Text(
+                        text = "💰${task.goldReward} | ✨${task.expReward}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PixelGold
+                    )
                 }
             }
         }
@@ -245,7 +261,7 @@ fun CompletedTaskItem(
         PixelCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .alpha(0.7f), // 视觉弱化
+                .alpha(0.7f),
             backgroundColor = RetroBeige.copy(alpha = 0.5f)
         ) {
             Row(
@@ -259,13 +275,13 @@ fun CompletedTaskItem(
                         text = task.label,
                         style = MaterialTheme.typography.titleMedium,
                         color = RetroDarkBrown.copy(alpha = 0.6f),
-                        textDecoration = TextDecoration.LineThrough // 删除线
+                        textDecoration = TextDecoration.LineThrough
                     )
                     
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "完成时间: ${formatDate(System.currentTimeMillis())}", // 这里最好记录完成时间，暂时用当前时间模拟
+                        text = "完成时间: ${formatDate(System.currentTimeMillis())}",
                         style = MaterialTheme.typography.bodySmall,
                         color = RetroDarkBrown.copy(alpha = 0.5f)
                     )
@@ -273,7 +289,6 @@ fun CompletedTaskItem(
             }
         }
         
-        // 盖章效果
         Text(
             text = "CLEARED",
             color = Color.Red.copy(alpha = 0.4f),

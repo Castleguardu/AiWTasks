@@ -80,7 +80,8 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.4.0")
     
     implementation("androidx.navigation:navigation-compose:2.8.5")
-    
+    implementation("androidx.compose.foundation:foundation:1.10.3")
+
     // WorkManager dependency
     val work_version = "2.9.0"
     implementation("androidx.work:work-runtime-ktx:$work_version")
