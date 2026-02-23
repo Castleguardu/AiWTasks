@@ -19,7 +19,6 @@ class WellnessApplication : Application() {
     
     private val reminderManager by lazy { ReminderManager(this) }
     
-    // 公开 AvatarManager 供 ViewModel 使用
     val avatarManager by lazy { AvatarManager(this) }
 
     val taskRepository: TaskRepository by lazy {
@@ -27,6 +26,7 @@ class WellnessApplication : Application() {
             taskDao = database.wellnessTaskDao(),
             userStatsDao = database.userStatsDao(),
             rewardItemDao = database.rewardItemDao(),
+            milestoneDao = database.milestoneDao(), // 确保这一行存在且参数正确
             calendarDataSource = calendarDataSource,
             completeTaskUseCase = completeTaskUseCase,
             reminderManager = reminderManager

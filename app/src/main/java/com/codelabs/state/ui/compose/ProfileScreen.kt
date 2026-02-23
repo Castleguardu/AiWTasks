@@ -3,7 +3,6 @@ package com.codelabs.state.ui.compose
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,22 +18,40 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.codelabs.state.data.Milestone
 import com.codelabs.state.ui.theme.PixelGold
 import com.codelabs.state.ui.theme.PixelGreen
+import com.codelabs.state.ui.theme.RetroBeige
 import com.codelabs.state.ui.theme.RetroDarkBrown
 import com.codelabs.state.viewmodel.ProfileViewModel
 
@@ -45,8 +62,11 @@ fun ProfileScreen(
     val userStats by viewModel.userStats.collectAsState()
     val completedCount by viewModel.completedTasksCount.collectAsState()
     val avatarFile by viewModel.avatarFile.collectAsState()
+    val milestones by viewModel.milestones.collectAsState()
 
-    // Photo Picker Launcher
+    var showNameDialog by remember { mutableStateOf(false) }
+    var showMilestoneDialog by remember { mutableStateOf(false) }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -66,7 +86,7 @@ fun ProfileScreen(
             PixelCard(modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 头像框 (点击触发 Picker)
+                        // 头像框
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
@@ -83,9 +103,7 @@ fun ProfileScreen(
                                 AsyncImage(
                                     model = avatarFile,
                                     contentDescription = "Avatar",
-                                    contentScale = ContentScale.FillBounds, // 拉伸填满，像素风通常不需要裁剪
-                                    // Coil 默认会平滑，我们需要它呈现像素感。
-                                    // 实际上这里的 File 已经是像素化后的图了，所以无论怎么显示都是像素风。
+                                    contentScale = ContentScale.FillBounds,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             } else {
@@ -95,12 +113,26 @@ fun ProfileScreen(
 
                         Spacer(modifier = Modifier.width(16.dp))
 
-                        // 等级
-                        Text(
-                            text = "Lv. ${userStats?.level ?: 1}",
-                            style = MaterialTheme.typography.displaySmall,
-                            color = RetroDarkBrown
-                        )
+                        Column {
+                            // 名字与编辑
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = userStats?.userName ?: "勇者",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = RetroDarkBrown
+                                )
+                                IconButton(onClick = { showNameDialog = true }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Edit Name", tint = RetroDarkBrown, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            
+                            // 等级
+                            Text(
+                                text = "Lv. ${userStats?.level ?: 1}",
+                                style = MaterialTheme.typography.displaySmall,
+                                color = RetroDarkBrown
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -119,9 +151,7 @@ fun ProfileScreen(
                     PixelProgressBar(
                         progress = exp / maxExp.toFloat(),
                         color = PixelGreen,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(24.dp)
+                        modifier = Modifier.fillMaxWidth().height(24.dp)
                     )
                 }
             }
@@ -144,24 +174,106 @@ fun ProfileScreen(
         item {
             PixelCard(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("✨ 核心目标与羁绊", style = MaterialTheme.typography.titleMedium, color = RetroDarkBrown)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("✨ 核心目标与羁绊", style = MaterialTheme.typography.titleMedium, color = RetroDarkBrown)
+                        IconButton(
+                            onClick = { showMilestoneDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Milestone", tint = RetroDarkBrown)
+                        }
+                    }
                     
-                    MilestoneItem(
-                        title = "与海莉结婚 💖",
-                        progressText = "8/10",
-                        progress = 0.8f,
-                        color = Color(0xFFE91E63) // Pink
-                    )
-                    
-                    MilestoneItem(
-                        title = "独立开发上架 💻",
-                        progressText = "60%",
-                        progress = 0.6f,
-                        color = PixelGold
-                    )
+                    if (milestones.isEmpty()) {
+                        Text("暂无目标，快去添加吧！", style = MaterialTheme.typography.bodySmall, color = RetroDarkBrown.copy(alpha = 0.5f))
+                    } else {
+                        // 动态列表
+                        milestones.forEach { milestone ->
+                            MilestoneItem(
+                                title = milestone.title,
+                                progressText = "${milestone.currentProgress}/${milestone.maxProgress}",
+                                progress = milestone.currentProgress.toFloat() / milestone.maxProgress.toFloat(),
+                                color = PixelGold,
+                                onIncrement = { viewModel.incrementMilestoneProgress(milestone) },
+                                isComplete = milestone.currentProgress >= milestone.maxProgress
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // Dialogs
+    if (showNameDialog) {
+        EditNameDialog(
+            currentName = userStats?.userName ?: "",
+            onDismiss = { showNameDialog = false },
+            onConfirm = { 
+                viewModel.updateUserName(it)
+                showNameDialog = false
+            }
+        )
+    }
+
+    if (showMilestoneDialog) {
+        AddMilestoneDialog(
+            onDismiss = { showMilestoneDialog = false },
+            onConfirm = { title, max ->
+                viewModel.addMilestone(title, max)
+                showMilestoneDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun MilestoneItem(
+    title: String, 
+    progressText: String, 
+    progress: Float, 
+    color: Color, 
+    onIncrement: () -> Unit,
+    isComplete: Boolean
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, color = RetroDarkBrown)
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (isComplete) "达成！" else progressText, 
+                    style = MaterialTheme.typography.labelSmall, 
+                    color = if (isComplete) Color.Red else RetroDarkBrown
+                )
+                if (!isComplete) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .background(PixelGreen, RoundedCornerShape(4.dp))
+                            .clickable { onIncrement() }
+                            .border(1.dp, RetroDarkBrown, RoundedCornerShape(4.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Increment", tint = RetroDarkBrown, modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+        }
+        PixelProgressBar(
+            progress = progress,
+            color = if (isComplete) Color.Red else color, // 达成变红
+            modifier = Modifier.fillMaxWidth().height(16.dp)
+        )
     }
 }
 
@@ -172,25 +284,68 @@ fun StatRow(icon: String, label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text("$icon $label", style = MaterialTheme.typography.bodyMedium, color = RetroDarkBrown)
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = RetroDarkBrown, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = RetroDarkBrown, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-fun MilestoneItem(title: String, progressText: String, progress: Float, color: Color) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, color = RetroDarkBrown)
-            Text(progressText, style = MaterialTheme.typography.labelSmall, color = RetroDarkBrown)
+fun EditNameDialog(currentName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var name by remember { mutableStateOf(currentName) }
+    Dialog(onDismissRequest = onDismiss) {
+        PixelCard(modifier = Modifier.padding(16.dp)) {
+            Column {
+                Text("修改名字", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true)
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { if (name.isNotBlank()) onConfirm(name) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PixelGreen)
+                ) {
+                    Text("保存", color = RetroDarkBrown)
+                }
+            }
         }
-        PixelProgressBar(
-            progress = progress,
-            color = color,
-            modifier = Modifier.fillMaxWidth().height(16.dp)
-        )
+    }
+}
+
+@Composable
+fun AddMilestoneDialog(onDismiss: () -> Unit, onConfirm: (String, Int) -> Unit) {
+    var title by remember { mutableStateOf("") }
+    var maxStr by remember { mutableStateOf("10") }
+    Dialog(onDismissRequest = onDismiss) {
+        PixelCard(modifier = Modifier.padding(16.dp)) {
+            Column {
+                Text("新建羁绊/目标", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = title, 
+                    onValueChange = { title = it }, 
+                    label = { Text("目标名称") },
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = maxStr, 
+                    onValueChange = { if (it.all { c -> c.isDigit() }) maxStr = it }, 
+                    label = { Text("总进度值") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { 
+                        val max = maxStr.toIntOrNull() ?: 10
+                        if (title.isNotBlank() && max > 0) onConfirm(title, max) 
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PixelGreen)
+                ) {
+                    Text("创建", color = RetroDarkBrown)
+                }
+            }
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.codelabs.state.ui.compose
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -95,7 +96,9 @@ fun MainScreen(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
-            // Handle result
+            if (!isGranted) {
+                Toast.makeText(context, "如果不授予通知权限，您将无法收到任务提醒", Toast.LENGTH_LONG).show()
+            }
         }
     )
 
@@ -117,8 +120,9 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = {
+                    // 动态显示玩家名字
                     Text(
-                        text = "AiWTasks",
+                        text = if (userStats != null) "${userStats!!.userName} 的任务板" else "AiWTasks",
                         style = MaterialTheme.typography.titleLarge,
                         color = RetroDarkBrown
                     )
